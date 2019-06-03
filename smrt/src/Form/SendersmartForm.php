@@ -67,9 +67,17 @@ class SendersmartForm extends FormBase {
         $email = $form_state->getValue('email');
         $first_name = $form_state->getValue('first_name');
         $last_name = $form_state->getValue('last_name');
-        drupal_set_message(t('Сообщение отправлено на почту: %email.', ['%email' => $email]));
-        $this->create_contact_hubspot($email,$first_name,$last_name);
-        \Drupal::logger('mail-log')->notice(t('An email notification has been sent to @email ', array('@email' => $email)));
+        $message = $form_state->getValue('message');
+        $subject = $form_state->getValue('subject');
+
+        if($this->send_message_smrt($email, $first_name, $last_name, $subject, $message)) {
+            drupal_set_message(t('Сообщение отправлено на почту: %email.', ['%email' => $email]));
+            $this->create_contact_hubspot($email,$first_name,$last_name);
+            \Drupal::logger('mail-log')->notice(t('An email notification has been sent to @email ', array('@email' => $email)));
+        } else {
+            drupal_set_message(t('Ошибка отправки сообщения'));
+        }
+
     }
 
     public function create_contact_hubspot($email, $first_name, $last_name) {
@@ -101,6 +109,22 @@ class SendersmartForm extends FormBase {
         $status_code = @curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curl_errors = curl_error($ch);
         @curl_close($ch);
+    }
+
+    public function send_message_smrt($email, $first_name, $last_name, $subject, $html) {
+        $send_mail = new \Drupal\Core\Mail\Plugin\Mail\PhpMail(); // this is used to send HTML emails
+        $from = 'admin@site.ru';
+        $to = $email;
+        $message['headers'] = array(
+            'content-type' => 'text/html',
+            'MIME-Version' => '1.0',
+            'reply-to' => $from,
+            'from' => $first_name.' '.$last_name.' <'.$from.'>'
+        );
+        $message['to'] = $to;
+        $message['subject'] = $subject;
+        $message['body'] = $html;
+        return $send_mail->mail($message);
     }
 
 }
